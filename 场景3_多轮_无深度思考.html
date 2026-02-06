@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-智能查证（场景3：多轮·无深度思考）</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background-color: #f5f5f5;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .app { display: flex; flex-direction: column; height: 100vh; background-color: #f5f5f5; }
+
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 16px 20px; background-color: #ffffff; border-bottom: 1px solid #e5e5e5; flex-shrink: 0;
+        }
+        .header-left { display: flex; align-items: center; gap: 12px; }
+        .back-button {
+            width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; border: none; background: transparent; padding: 0; transition: opacity 0.2s;
+        }
+        .back-button:hover { opacity: 0.7; }
+        .back-button:active { opacity: 0.5; }
+        .back-button svg { width: 24px; height: 24px; color: #1a1a1a; }
+        .header-title { display: flex; flex-direction: column; gap: 4px; }
+        .title-bold { font-size: 18px; font-weight: 600; color: #1a1a1a; line-height: 1.4; }
+        .title-subtitle { font-size: 13px; color: #999999; line-height: 1.4; }
+
+        .chat-container { flex: 1; overflow-y: auto; padding: 20px; background-color: #f5f5f5; }
+        .chat-container::-webkit-scrollbar { width: 6px; }
+        .chat-container::-webkit-scrollbar-track { background: transparent; }
+        .chat-container::-webkit-scrollbar-thumb { background: #d0d0d0; border-radius: 3px; }
+        .chat-container::-webkit-scrollbar-thumb:hover { background: #b0b0b0; }
+        .messages { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+
+        .message { display: flex; flex-direction: column; }
+        .message.user { align-items: flex-end; }
+        .message.ai { align-items: flex-start; }
+        .message-content { max-width: 85%; word-wrap: break-word; line-height: 1.6; }
+        .user-message {
+            background-color: #007aff; color: #ffffff; padding: 12px 16px; border-radius: 18px 18px 4px 18px;
+            font-size: 15px; box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2);
+        }
+        .ai-message {
+            background-color: #ffffff; padding: 16px; border-radius: 18px 18px 18px 4px;
+            font-size: 15px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); color: #1a1a1a;
+        }
+
+        .conclusion-section { margin-top: 8px; }
+        .conclusion-text { font-size: 15px; color: #1a1a1a; line-height: 1.8; white-space: pre-wrap; }
+
+        .typing-indicator { display: flex; gap: 4px; padding: 8px 0; }
+        .typing-indicator span { width: 8px; height: 8px; border-radius: 50%; background-color: #999999; animation: typing 1.4s infinite; }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.7; }
+            30% { transform: translateY(-10px); opacity: 1; }
+        }
+
+        .input-container { padding: 16px 20px; background-color: #ffffff; border-top: 1px solid #e5e5e5; flex-shrink: 0; }
+        .input-wrapper { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+
+        .deep-thinking-toggle { display: flex; align-items: center; gap: 8px; }
+        .deep-thinking-button {
+            display: flex; align-items: center; gap: 6px; padding: 8px 16px;
+            background-color: #007aff; color: #ffffff; border: none; border-radius: 20px;
+            font-size: 14px; cursor: pointer; user-select: none; transition: background-color 0.2s, opacity 0.2s;
+        }
+        .deep-thinking-button:hover { background-color: #0056d6; }
+        .deep-thinking-button:active { opacity: 0.8; }
+        .deep-thinking-button.active { background-color: #007aff; }
+        .deep-thinking-button.inactive { background-color: #f5f5f5; color: #666666; }
+        .deep-thinking-button.inactive:hover { background-color: #e5e5e5; }
+        .deep-thinking-icon { width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; }
+
+        .input-box {
+            display: flex; align-items: flex-end; background-color: #f5f5f5; border-radius: 24px;
+            padding: 8px 12px; gap: 8px; border: 1px solid #e5e5e5; transition: border-color 0.2s;
+        }
+        .input-box:focus-within { border-color: #007aff; background-color: #ffffff; }
+        .input-textarea {
+            flex: 1; border: none; outline: none; background: transparent; resize: none;
+            font-size: 15px; color: #1a1a1a; font-family: inherit; line-height: 1.5;
+            max-height: 120px; overflow-y: auto; padding: 4px 0;
+        }
+        .input-textarea::placeholder { color: #999999; }
+        .input-textarea::-webkit-scrollbar { width: 4px; }
+        .input-textarea::-webkit-scrollbar-track { background: transparent; }
+        .input-textarea::-webkit-scrollbar-thumb { background: #d0d0d0; border-radius: 2px; }
+
+        .send-button {
+            width: 36px; height: 36px; border-radius: 50%; border: none; background-color: #007aff; color: #ffffff;
+            cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .send-button:hover:not(:disabled) { background-color: #0056d6; }
+        .send-button:active:not(:disabled) { transform: scale(0.95); }
+        .send-button:disabled { background-color: #d0d0d0; cursor: not-allowed; }
+
+        @media (max-width: 768px) {
+            .message-content { max-width: 90%; }
+            .header { padding: 12px 16px; }
+            .chat-container { padding: 16px; }
+            .input-container { padding: 12px 16px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <div class="header-left">
+                <button class="back-button" id="backButton" title="返回">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+                <div class="header-title">
+                    <span class="title-bold">AI-智能查证</span>
+                    <span class="title-subtitle">内容由AI生成</span>
+                </div>
+            </div>
+            <div class="header-right"></div>
+        </header>
+
+        <div class="chat-container" id="chatContainer">
+            <div class="messages" id="messages"></div>
+        </div>
+
+        <div class="input-container">
+            <div class="input-wrapper">
+                <div class="deep-thinking-toggle">
+                    <button type="button" id="deepThinkingButton" class="deep-thinking-button inactive" title="本场景固定关闭">
+                        <svg class="deep-thinking-icon" width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="2" y="2" width="10" height="10" rx="1.5" stroke="currentColor" stroke-width="1.8" fill="none"/>
+                            <rect x="8" y="8" width="10" height="10" rx="1.5" stroke="currentColor" stroke-width="1.8" fill="none"/>
+                        </svg>
+                        <span>深度思考</span>
+                    </button>
+                </div>
+                <div class="input-box">
+                    <textarea class="input-textarea" id="inputTextarea" placeholder="请输入内容..." rows="1"></textarea>
+                    <button class="send-button" id="sendButton">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 5L12 19M7 12L12 5L17 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 场景配置
+        const SCENE_ALLOW_MULTI_TURN = true;
+        const SCENE_DEEP_THINKING_FIXED = true;
+        const SCENE_DEEP_THINKING_VALUE = false;
+
+        const state = { messages: [], deepThinking: SCENE_DEEP_THINKING_VALUE, isTyping: false };
+
+        const messagesContainer = document.getElementById('messages');
+        const inputTextarea = document.getElementById('inputTextarea');
+        const sendButton = document.getElementById('sendButton');
+        const deepThinkingButton = document.getElementById('deepThinkingButton');
+        const backButton = document.getElementById('backButton');
+        const chatContainer = document.getElementById('chatContainer');
+
+        const mockAIResponse = (prompt) => {
+            const responses = {
+                '鸡骨泥有毒，不能加到淀粉肠给人吃，是真的吗？': {
+                    thinking: `好的，用户问的是"鸡骨泥有毒，不能加到淀粉肠给人吃，是真的吗?"首先得确定这个问题的关键点在哪里。用户可能看到了一些关于淀粉肠使用鸡骨泥的负面消息，担心食品安全。
+需要先看较真知识库里的内容。里面提到鸡骨泥本身没有有毒成分，只要符合食品规范就可以食用。但问题在于生产过程中是否合规，比如是否有厂家使用饲料级的骨泥代替食品级的。
+用户可能深层需求是担心自己吃的淀粉肠是否安全，尤其是之前315曝光过相关事件。需要澄清鸡骨泥本身没问题，但得看具体生产标准。
+还要注意用户可能混淆了"不建议人吃"和"有毒"的区别。知识库里提到商家说骨泥不建议人吃是因为他们卖的是饲料级产品，并非鸡骨泥本身有毒。
+需要强调关键在于监管和厂家是否合规，而不是鸡骨泥的本质。同时要指出淀粉肠本身营养问题比安全性更值得关注。`,
+                    conclusion: '该说法是假的。鸡骨泥本身无毒，符合食品生产规范的鸡骨泥可以用于淀粉肠。'
+                },
+                '那我们吃的淀粉肠里的鸡骨泥真的是宠物食品级的吗？': {
+                    thinking: `好的，用户问的是宠物食品里的鸡骨泥和人食用的鸡骨泥在加工上的区别。首先得确定用户可能是在看到最近淀粉肠相关的新闻后产生的疑问，比如315曝光的问题。用户身份可能是普通消费者，或者对食品安全比较关注的人。
+深层需求可能不只是想知道区别，而是担心自己吃的食品是否安全，尤其是淀粉肠这类含有鸡骨泥的产品。用户可能想知道如何区分两者，避免买到不合格的产品。
+需要先确认信息来源的可靠性。查到的资料里提到宠物食品用的鸡骨泥可能卫生标准较低，而人食用的有国家标准。要强调关键点在于原料来源、卫生标准和监管要求的不同。
+还要注意用户可能混淆了"机械分离肉"和"骨泥"的概念，需要解释清楚两者的关系，以及国家标准中的规定。比如人食用的必须符合GB/T40463-2021，而宠物用的可能没有这些要求。
+另外，用户可能担心商家会用宠物级的骨泥冒充食品级的，所以需要指出选购时要注意配料表和执行标准，避免被误导。总结时要明确两者的根本区别在于标准和监管，而不仅仅是加工工艺。`,
+                    conclusion: '宠物食品用的鸡骨泥和人食用的鸡骨泥，其根本区别在于执行的卫生标准、原料品质要求和监管严格程度不同，而非加工工艺有本质不同。'
+                },
+                '购买淀粉肠时，怎么判断配料里的鸡骨泥是否安全合规？': {
+                    thinking: `用户现在问的是购买淀粉肠时怎么判断配料里的鸡骨泥是否安全合规。首先，得从几个关键方面入手，比如配料表、生产标准、外观口感、品牌渠道这些。
+首先，看配料表，鸡骨泥如果是合规的，应该会明确标注，而且要符合国标，比如GB 2707这类肉制品安全标准。然后，生产厂家的资质，有没有SC编号，这个很重要，是食品生产许可的标志。
+然后，外观和口感，合格的含鸡骨泥的淀粉肠应该质地均匀，没有明显的硬颗粒，吃起来不会有硌牙的感觉，不然可能是粉碎不彻底，有尖锐碎骨的风险。
+还有，购买渠道，要选正规的商超、便利店，避免买三无产品，三无产品的原料和加工都没保障。
+另外，看检验合格证明，包装上有没有检验合格的标识，或者可以查看厂家的质检报告，确认鸡骨泥的原料检疫、卫生指标是否达标。
+最后，组织语言的时候要简洁，分点清晰，符合用户之前需要的结构化回答，同时结尾按照要求提一个具体的交付物提议，比如整理选购淀粉肠的避坑清单。`,
+                    conclusion: `判断淀粉肠配料里的鸡骨泥是否安全合规，可从包装信息、产品感官、购买渠道三个核心维度入手：
+1. 核对包装标识
+优先选择包装上标注完整配料表的产品，鸡骨泥需明确列入配料中；同时确认包装有SC食品生产许可证编号、执行标准（如肉制品类国标）、生产日期及保质期，且厂家信息（名称、地址、联系方式）齐全。
+2. 观察产品感官状态
+合格的含鸡骨泥淀粉肠应质地均匀、无明显硬颗粒，切开后切面平整，没有肉眼可见的尖锐碎骨；若肠体表面发黏、有异味，或切面有硬块、杂质，大概率存在加工不达标问题。
+3. 选择正规购买渠道
+避免购买散装、三无淀粉肠，优先在大型商超、连锁便利店等正规渠道选购，这类渠道对供应商的资质审核更严格，原料合规性更有保障。`
+                }
+            };
+            return responses[prompt] || { thinking: '正在分析您的问题...', conclusion: '根据相关信息，该说法需要进一步核实。' };
+        };
+
+        const scrollToBottom = () => { chatContainer.scrollTop = chatContainer.scrollHeight; };
+
+        const typeText = async (text, callback) => {
+            for (let i = 0; i <= text.length; i++) {
+                callback(text.slice(0, i));
+                await new Promise(resolve => setTimeout(resolve, 20));
+            }
+        };
+
+        const escapeHtml = (text) => {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        };
+
+        const createUserMessage = (content) => {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message user';
+            messageDiv.innerHTML = `<div class="message-content user-message">${escapeHtml(content)}</div>`;
+            return messageDiv;
+        };
+
+        const createAIMessage = (conclusion, conclusionDisplay = '') => {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message ai';
+            messageDiv.innerHTML = `
+                <div class="message-content ai-message">
+                    <div class="conclusion-section">
+                        <div class="conclusion-text">${escapeHtml(conclusionDisplay || conclusion)}</div>
+                    </div>
+                </div>
+            `;
+            return messageDiv;
+        };
+
+        const createTypingIndicator = () => {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message ai';
+            messageDiv.innerHTML = `
+                <div class="message-content ai-message">
+                    <div class="typing-indicator"><span></span><span></span><span></span></div>
+                </div>
+            `;
+            return messageDiv;
+        };
+
+        const handleSend = async () => {
+            const inputValue = inputTextarea.value.trim();
+            if (!inputValue || state.isTyping) return;
+
+            messagesContainer.appendChild(createUserMessage(inputValue));
+            state.messages.push({ type: 'user', content: inputValue });
+
+            inputTextarea.value = '';
+            updateSendButton();
+            adjustTextareaHeight();
+
+            state.isTyping = true;
+            const typingIndicator = createTypingIndicator();
+            messagesContainer.appendChild(typingIndicator);
+            scrollToBottom();
+
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            const response = mockAIResponse(inputValue);
+            typingIndicator.remove();
+
+            const aiMessageElement = createAIMessage(response.conclusion, '');
+            messagesContainer.appendChild(aiMessageElement);
+            scrollToBottom();
+
+            await typeText(response.conclusion, (text) => {
+                const conclusionText = aiMessageElement.querySelector('.conclusion-text');
+                if (conclusionText) conclusionText.textContent = text;
+                scrollToBottom();
+            });
+
+            state.isTyping = false;
+            scrollToBottom();
+        };
+
+        const updateSendButton = () => {
+            const hasText = inputTextarea.value.trim().length > 0;
+            sendButton.disabled = !hasText || state.isTyping;
+        };
+
+        const adjustTextareaHeight = () => {
+            inputTextarea.style.height = 'auto';
+            inputTextarea.style.height = inputTextarea.scrollHeight + 'px';
+        };
+
+        backButton.addEventListener('click', () => {
+            if (window.history.length > 1) window.history.back();
+            else if (confirm('确定要退出吗？')) window.close();
+        });
+
+        deepThinkingButton.addEventListener('click', () => {
+            if (SCENE_DEEP_THINKING_FIXED) return;
+        });
+
+        sendButton.addEventListener('click', handleSend);
+        inputTextarea.addEventListener('input', () => { updateSendButton(); adjustTextareaHeight(); });
+        inputTextarea.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } });
+
+        updateSendButton();
+        deepThinkingButton.classList.add('inactive');
+        deepThinkingButton.classList.remove('active');
+    </script>
+</body>
+</html>
